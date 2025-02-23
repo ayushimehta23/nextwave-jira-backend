@@ -1,3 +1,7 @@
 from django.contrib import admin
+from jira_app.models import Project, Task, Comment  # Use absolute import
 
-# Register your models here.
+admin.site.register(Project)
+admin.site.register(Task)
+admin.site.register(Comment)
+
