@@ -67,7 +67,7 @@ class UserListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        users = User.objects.all().values("id", "username", "email")
+        users = User.objects.filter(is_superuser=False).values("id", "username", "email")
         return Response(users, status=status.HTTP_200_OK)
 
 
@@ -96,10 +96,21 @@ class ProjectListCreateView(APIView):
     def post(self, request):
         serializer = ProjectSerializer(data=request.data)
         if serializer.is_valid():
-            project = serializer.save()
-            project.team_members.add(request.user)  # Add creator as a team member
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            project = serializer.save()  # Save project first
+
+            # 🔹 Add the creator as a team member
+            project.team_members.add(request.user)
+
+            # 🔹 Add additional team members from request
+            team_member_ids = request.data.get("team_members", [])
+            if team_member_ids:
+                users = User.objects.filter(id__in=team_member_ids)
+                project.team_members.add(*users)
+
+            return Response(ProjectSerializer(project).data, status=status.HTTP_201_CREATED)
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class ProjectDetailView(APIView):
     permission_classes = [IsAuthenticated]
@@ -109,7 +120,7 @@ class ProjectDetailView(APIView):
         if not project:
             return Response({"error": "Not authorized or project not found"}, status=status.HTTP_403_FORBIDDEN)
 
-        serializer = ProjectSerializer(project)  # Now includes tasks
+        serializer = ProjectSerializer(project)  # Now includes team_members
         return Response(serializer.data)
 
     def put(self, request, pk):
