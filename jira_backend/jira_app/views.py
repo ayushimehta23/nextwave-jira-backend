@@ -171,46 +171,54 @@ class TaskListCreateView(APIView):
         return Response(serializer.data)
 
     def post(self, request, project_id):
-        """ Create a new task under a specific project """
+        """ Create a new task under a specific project with priority """
         project = get_project_or_403(project_id, request.user)
         if not project:
             return Response({"error": "Not authorized or project not found"}, status=status.HTTP_403_FORBIDDEN)
 
-        # Copy request data and ensure project is assigned
         data = request.data.copy()
         data["project"] = project.id  # Explicitly link the task to the project
 
         serializer = TaskSerializer(data=data)
         if serializer.is_valid():
-            task = serializer.save(project=project)  # Ensure the task is properly associated
+            task = serializer.save(project=project)  # Save task
             return Response(TaskSerializer(task).data, status=status.HTTP_201_CREATED)
-        
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
+
 class UpdateTaskStatusView(APIView):
     permission_classes = [IsAuthenticated]
 
     def patch(self, request, task_id):
         """
-        Update the status of a task if the user is part of the project.
+        Update the status and priority of a task if the user is part of the project.
         """
         task = Task.objects.filter(id=task_id, project__team_members=request.user).first()
-        
+
         if not task:
             return Response({"error": "Not authorized or task not found"}, status=status.HTTP_403_FORBIDDEN)
 
         new_status = request.data.get("status")
+        new_priority = request.data.get("priority")
 
-        if new_status not in ["to_do", "in_progress", "done"]:
+        if new_status and new_status not in ["to_do", "in_progress", "done"]:
             return Response({"error": "Invalid status value"}, status=status.HTTP_400_BAD_REQUEST)
 
-        task.status = new_status
+        if new_priority and new_priority not in ["low", "medium", "high"]:
+            return Response({"error": "Invalid priority value"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if new_status:
+            task.status = new_status
+
+        if new_priority:
+            task.priority = new_priority
+
         task.save()
 
-        return Response({"message": "Task status updated successfully", "task": TaskSerializer(task).data})
+        return Response({"message": "Task updated successfully", "task": TaskSerializer(task).data})
 
 
-    
 class TaskDetailView(APIView):
     permission_classes = [IsAuthenticated]
 

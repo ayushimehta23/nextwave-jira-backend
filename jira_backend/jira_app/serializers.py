@@ -8,36 +8,28 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ["id", "username", "email"]
 
-# Task Serializer (Move this above ProjectSerializer)
+# Task Serializer
 class TaskSerializer(serializers.ModelSerializer):
-    assigned_to = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.all(), allow_null=True
-    )  # Allow task assignment
-    project = serializers.PrimaryKeyRelatedField(
-        queryset=Project.objects.all()
-    )  # Allow selecting a project
+    assigned_to = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), allow_null=True)
+    project = serializers.PrimaryKeyRelatedField(queryset=Project.objects.all())
 
     class Meta:
         model = Task
-        fields = "__all__"
+        fields = "__all__"  # ✅ Includes priority field
 
 # Project Serializer
 class ProjectSerializer(serializers.ModelSerializer):
-    team_members = UserSerializer(many=True, read_only=True)  # Nested team members
-    tasks = TaskSerializer(many=True, read_only=True)  # Include related tasks
+    team_members = UserSerializer(many=True, read_only=True)
+    tasks = TaskSerializer(many=True, read_only=True)
 
     class Meta:
         model = Project
-        fields = "__all__"  # Ensure all fields are included
+        fields = "__all__"
 
 # Comment Serializer
 class CommentSerializer(serializers.ModelSerializer):
-    user = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.all()
-    )  # Allow specifying the user
-    task = serializers.PrimaryKeyRelatedField(
-        queryset=Task.objects.all()
-    )  # Allow specifying the task
+    user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
+    task = serializers.PrimaryKeyRelatedField(queryset=Task.objects.all())
 
     class Meta:
         model = Comment
