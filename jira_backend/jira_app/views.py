@@ -156,32 +156,25 @@ class ProjectAssignedUsersView(APIView):
         return Response(serializer.data)
 
 # ----------------- 🔹 Task Views 🔹 -----------------
-
 class TaskListCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, project_id):
         """ Fetch all tasks for a project if the user is authorized """
-        project = get_project_or_403(project_id, request.user)
-        if not project:
-            return Response({"error": "Not authorized or project not found"}, status=status.HTTP_403_FORBIDDEN)
-
+        project = get_object_or_404(Project, id=project_id, team_members=request.user)
         tasks = Task.objects.filter(project=project)
         serializer = TaskSerializer(tasks, many=True)
         return Response(serializer.data)
 
     def post(self, request, project_id):
-        """ Create a new task under a specific project with priority """
-        project = get_project_or_403(project_id, request.user)
-        if not project:
-            return Response({"error": "Not authorized or project not found"}, status=status.HTTP_403_FORBIDDEN)
-
+        """ Create a new task under a specific project with a deadline """
+        project = get_object_or_404(Project, id=project_id, team_members=request.user)
         data = request.data.copy()
-        data["project"] = project.id  # Explicitly link the task to the project
+        data["project"] = project.id  
 
         serializer = TaskSerializer(data=data)
         if serializer.is_valid():
-            task = serializer.save(project=project)  # Save task
+            task = serializer.save(project=project)
             return Response(TaskSerializer(task).data, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -191,22 +184,21 @@ class UpdateTaskStatusView(APIView):
     permission_classes = [IsAuthenticated]
 
     def patch(self, request, task_id):
-        """
-        Update the status and priority of a task if the user is part of the project.
-        """
-        task = Task.objects.filter(id=task_id, project__team_members=request.user).first()
-
-        if not task:
-            return Response({"error": "Not authorized or task not found"}, status=status.HTTP_403_FORBIDDEN)
+        """ Update task details including deadline, status, and priority """
+        task = get_object_or_404(Task, id=task_id, project__team_members=request.user)
 
         new_status = request.data.get("status")
         new_priority = request.data.get("priority")
+        new_deadline = request.data.get("deadline")
 
         if new_status and new_status not in ["to_do", "in_progress", "done"]:
             return Response({"error": "Invalid status value"}, status=status.HTTP_400_BAD_REQUEST)
 
         if new_priority and new_priority not in ["low", "medium", "high"]:
             return Response({"error": "Invalid priority value"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if new_deadline:
+            task.deadline = new_deadline  # ✅ Update deadline
 
         if new_status:
             task.status = new_status
@@ -215,7 +207,6 @@ class UpdateTaskStatusView(APIView):
             task.priority = new_priority
 
         task.save()
-
         return Response({"message": "Task updated successfully", "task": TaskSerializer(task).data})
 
 

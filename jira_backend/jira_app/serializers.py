@@ -10,10 +10,11 @@ class UserSerializer(serializers.ModelSerializer):
 
 # Task Serializer
 class TaskSerializer(serializers.ModelSerializer):
-    assigned_to = UserSerializer(read_only=True)  # ✅ Return full user details
+    assigned_to = UserSerializer(read_only=True)
     assigned_to_id = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(), source="assigned_to", write_only=True, allow_null=True
     )
+    deadline = serializers.DateTimeField(required=False, allow_null=True)  # ✅ Added deadline field
 
     class Meta:
         model = Task
