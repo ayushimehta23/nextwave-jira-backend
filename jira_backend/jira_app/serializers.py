@@ -10,12 +10,15 @@ class UserSerializer(serializers.ModelSerializer):
 
 # Task Serializer
 class TaskSerializer(serializers.ModelSerializer):
-    assigned_to = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), allow_null=True)
-    project = serializers.PrimaryKeyRelatedField(queryset=Project.objects.all())
+    assigned_to = UserSerializer(read_only=True)  # ✅ Return full user details
+    assigned_to_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(), source="assigned_to", write_only=True, allow_null=True
+    )
 
     class Meta:
         model = Task
-        fields = "__all__"  # ✅ Includes priority field
+        fields = "__all__"
+
 
 # Project Serializer
 class ProjectSerializer(serializers.ModelSerializer):
