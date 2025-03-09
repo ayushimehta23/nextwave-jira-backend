@@ -120,7 +120,10 @@ class ProjectDetailView(APIView):
         if not project:
             return Response({"error": "Not authorized or project not found"}, status=status.HTTP_403_FORBIDDEN)
 
-        serializer = ProjectSerializer(project)  # Now includes team_members
+        # ✅ Prefetch tasks along with their comments
+        project = Project.objects.prefetch_related("tasks__comments").get(pk=pk)
+
+        serializer = ProjectSerializer(project)
         return Response(serializer.data)
 
     def put(self, request, pk):
@@ -166,17 +169,19 @@ class TaskListCreateView(APIView):
         serializer = TaskSerializer(tasks, many=True)
         return Response(serializer.data)
 
-    def post(self, request, project_id):
-        """ Create a new task under a specific project with a deadline """
-        project = get_object_or_404(Project, id=project_id, team_members=request.user)
-        data = request.data.copy()
-        data["project"] = project.id  
+    def post(self, request, *args, **kwargs):
+        data = request.data
+        comment_text = data.pop("comment", None)  # ✅ Get comment if provided
 
         serializer = TaskSerializer(data=data)
         if serializer.is_valid():
-            task = serializer.save(project=project)
-            return Response(TaskSerializer(task).data, status=status.HTTP_201_CREATED)
+            task = serializer.save()
 
+            # ✅ If comment is provided, create a new Comment instance
+            if comment_text:
+                Comment.objects.create(task=task, user=request.user, text=comment_text)
+
+            return Response(TaskSerializer(task).data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -233,20 +238,26 @@ class CommentListCreateView(APIView):
         task = Task.objects.filter(id=task_id, project__team_members=request.user).first()
         if not task:
             return Response({"error": "Not authorized or task not found"}, status=status.HTTP_403_FORBIDDEN)
-        comments = Comment.objects.filter(task=task)
+
+        comments = Comment.objects.filter(task=task)  # ✅ Ensure comments are filtered correctly
         serializer = CommentSerializer(comments, many=True)
         return Response(serializer.data)
 
     def post(self, request, task_id):
-        task = Task.objects.filter(id=task_id, project__team_members=request.user).first()
-        if not task:
-            return Response({"error": "Not authorized or task not found"}, status=status.HTTP_403_FORBIDDEN)
-        
-        data = request.data.copy()
-        data["task"] = task.id
-        data["user"] = request.user.id
+        task = Task.objects.filter(id=task_id).first()
+        if not task or request.user not in task.project.team_members.all():
+            return Response({"error": "You are not authorized to comment on this task"}, status=status.HTTP_403_FORBIDDEN)
+
+        data = {
+            "task": task.id,   # ✅ Ensure the task ID is linked correctly
+            "user": request.user.id,
+            "text": request.data.get("text"),
+        }
         serializer = CommentSerializer(data=data)
+
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+

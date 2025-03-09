@@ -32,18 +32,20 @@ class Task(models.Model):
     priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default="medium")
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="tasks")
     assigned_to = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
-    deadline = models.DateTimeField(null=True, blank=True)  # ✅ Added deadline field
+    deadline = models.DateTimeField(null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.title
 
+
 # Comment Model
 class Comment(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
     task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="comments")
-    content = models.TextField()
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    text = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"Comment by {self.user.username} on {self.task.title}"
+

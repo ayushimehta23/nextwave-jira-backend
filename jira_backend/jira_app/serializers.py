@@ -8,17 +8,30 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ["id", "username", "email"]
 
-# Task Serializer
+# Comment Serializer
+class CommentSerializer(serializers.ModelSerializer):
+    user = serializers.ReadOnlyField(source="user.username")  # Show username instead of ID
+
+    class Meta:
+        model = Comment
+        fields = ["id", "user", "text", "created_at"]
+
 class TaskSerializer(serializers.ModelSerializer):
-    assigned_to = UserSerializer(read_only=True)
-    assigned_to_id = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.all(), source="assigned_to", write_only=True, allow_null=True
-    )
-    deadline = serializers.DateTimeField(required=False, allow_null=True)  # ✅ Added deadline field
+    assigned_to = serializers.SerializerMethodField()
+    comments = CommentSerializer(many=True, read_only=True)  # ✅ Include comments
 
     class Meta:
         model = Task
-        fields = "__all__"
+        fields = ["id", "title", "description", "status", "priority", "assigned_to", "deadline", "comments", "updated_at", "project"]
+
+    def get_assigned_to(self, obj):
+        if obj.assigned_to:
+            return {
+                "id": obj.assigned_to.id,
+                "username": obj.assigned_to.username,
+                "email": obj.assigned_to.email,
+            }
+        return None
 
 
 # Project Serializer
@@ -30,11 +43,3 @@ class ProjectSerializer(serializers.ModelSerializer):
         model = Project
         fields = "__all__"
 
-# Comment Serializer
-class CommentSerializer(serializers.ModelSerializer):
-    user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
-    task = serializers.PrimaryKeyRelatedField(queryset=Task.objects.all())
-
-    class Meta:
-        model = Comment
-        fields = "__all__"
